@@ -101,4 +101,5 @@ except OSError:
     print("Error in File Creation")
 
 WebScrapper(arguments.url,arguments.level)
+print()
 sys.exit()
