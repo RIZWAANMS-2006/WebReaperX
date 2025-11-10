@@ -7,6 +7,7 @@ import requests
 import argparse
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+from pywebcopy import save_website
 from tqdm import tqdm
 
 class WebScrapper:
@@ -59,14 +60,18 @@ class WebScrapper:
             pass
         elif level == 3:
             with sync_playwright() as player:
-                browser = player.chromium.launch(headless=False)
+                browser = player.chromium.launch(headless=True)
                 page = browser.new_page()
                 page.goto(url)
-                soup = BeautifulSoup(page.content(),'html.parse')
-                with open(dir_path_l2 / "content.txt","w",encoding="utf-8") as file_path_l1:
-                    file_path_l1.writelines(soup.text.split())
-                with open("clone.html","w",encoding="utf-8") as file_path_l1:
-                    file_path_l1.write(soup.prettify())
+                webData = BeautifulSoup(page.content(),'html.parser')
+                with open(dir_path_l3 / "content.txt","w",encoding="utf-8") as file_path_l3:
+                    file_path_l3.write(str(webData.text.split()))
+                with open(dir_path_l3 /"clone.html","w",encoding="utf-8") as file_path_l3:
+                    file_path_l3.write(webData.prettify())
+                # save_website(
+                #     url = url,
+                #     project_folder=dir_path_l3,
+                # )
 
 
 
