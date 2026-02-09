@@ -62,16 +62,129 @@ class WebScrapper:
             with sync_playwright() as player:
                 browser = player.chromium.launch(headless=True)
                 page = browser.new_page()
-                page.goto(url)
-                webData = BeautifulSoup(page.content(),'html.parser')
-                with open(dir_path_l3 / "content.txt","w",encoding="utf-8") as file_path_l3:
+                page.goto(url, wait_until="networkidle")
+                webData = BeautifulSoup(page.content(), 'html.parser')
+
+                # Writing Website content in the 'content.txt' file
+                with open(dir_path_l3 / "content.txt", "w", encoding="utf-8") as file_path_l3:
                     file_path_l3.write(str(webData.text.split()))
-                with open(dir_path_l3 /"clone.html","w",encoding="utf-8") as file_path_l3:
+
+                # Cloning the website in the file 'clone.html' file
+                with open(dir_path_l3 / "clone.html", "w", encoding="utf-8") as file_path_l3:
                     file_path_l3.write(webData.prettify())
-                # save_website(
-                #     url = url,
-                #     project_folder=dir_path_l3,
-                # )
+
+                # Create Resources directory
+                resources_path = dir_path_l3 / "Resources"
+                resources_path.mkdir(parents=True, exist_ok=True)
+
+                # Downloading image resources
+                print("\n[*] Downloading images...")
+                images = webData.find_all("img")
+                for img in tqdm(images, desc="Images"):
+                    src = img.get('src') or img.get('data-src')
+                    if src:
+                        try:
+                            img_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                response = page.request.get(img_url)
+                                if response.ok:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(response.body())
+                        except Exception as e:
+                            print(f"Error downloading image {src}: {e}")
+
+                # Downloading video resources
+                print("\n[*] Downloading videos...")
+                videos = webData.find_all("video")
+                video_sources = webData.find_all("source")
+                for video in tqdm(videos + video_sources, desc="Videos"):
+                    src = video.get('src')
+                    if src:
+                        try:
+                            video_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                response = page.request.get(video_url)
+                                if response.ok:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(response.body())
+                        except Exception as e:
+                            print(f"Error downloading video {src}: {e}")
+
+                # Downloading audio resources
+                print("\n[*] Downloading audio...")
+                audios = webData.find_all("audio")
+                audio_sources = webData.find_all("source", {"type": lambda x: x and "audio" in x})
+                for audio in tqdm(audios + audio_sources, desc="Audio"):
+                    src = audio.get('src')
+                    if src:
+                        try:
+                            audio_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                response = page.request.get(audio_url)
+                                if response.ok:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(response.body())
+                        except Exception as e:
+                            print(f"Error downloading audio {src}: {e}")
+
+                # Downloading CSS stylesheets
+                print("\n[*] Downloading stylesheets...")
+                stylesheets = webData.find_all("link", {"rel": "stylesheet"})
+                for css in tqdm(stylesheets, desc="CSS"):
+                    href = css.get('href')
+                    if href:
+                        try:
+                            css_url = urllib.parse.urljoin(url, href)
+                            filename = href.split('/')[-1].split('?')[0]
+                            if filename:
+                                response = page.request.get(css_url)
+                                if response.ok:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(response.body())
+                        except Exception as e:
+                            print(f"Error downloading stylesheet {href}: {e}")
+
+                # Downloading JavaScript files
+                print("\n[*] Downloading scripts...")
+                scripts = webData.find_all("script", src=True)
+                for script in tqdm(scripts, desc="Scripts"):
+                    src = script.get('src')
+                    if src:
+                        try:
+                            script_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                response = page.request.get(script_url)
+                                if response.ok:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(response.body())
+                        except Exception as e:
+                            print(f"Error downloading script {src}: {e}")
+
+                # Downloading fonts and other linked resources
+                print("\n[*] Downloading fonts and other resources...")
+                links = webData.find_all("link", href=True)
+                for link in tqdm(links, desc="Other"):
+                    rel = link.get('rel', [])
+                    if 'icon' in rel or 'font' in str(rel).lower():
+                        href = link.get('href')
+                        if href:
+                            try:
+                                resource_url = urllib.parse.urljoin(url, href)
+                                filename = href.split('/')[-1].split('?')[0]
+                                if filename:
+                                    response = page.request.get(resource_url)
+                                    if response.ok:
+                                        with open(resources_path / filename, "wb") as f:
+                                            f.write(response.body())
+                            except Exception as e:
+                                print(f"Error downloading resource {href}: {e}")
+
+                print(f"\n[+] Scraping complete! Resources saved to: {resources_path}")
+                browser.close()
 
 
 
