@@ -19,42 +19,131 @@ class WebScrapper:
 
     def main(self,url,level):
         if level == 1:
-            response = requests.get(url,timeout=None)
+            response = requests.get(url, timeout=None)
             if response.status_code == 200:
                 webData = BeautifulSoup(response.text, "html.parser")
 
-                #Writing Website content in the 'content.txt' file
-                with open(dir_path_l1 / "content.txt" ,'w', encoding='utf-8') as file_path_l1:
+                # Writing Website content in the 'content.txt' file
+                print("\n[*] Saving page content...")
+                with open(dir_path_l1 / "content.txt", 'w', encoding='utf-8') as file_path_l1:
                     file_path_l1.write(str(webData.text.split()))
 
-                #Cloning the website in the file 'clone.html' file
-                with open(dir_path_l1 / "clone.html",'w', encoding='utf-8') as file_path_l1:
+                # Cloning the website in the file 'clone.html' file
+                print("[*] Cloning website...")
+                with open(dir_path_l1 / "clone.html", 'w', encoding='utf-8') as file_path_l1:
                     file_path_l1.write(webData.prettify())
 
-                #Downloading image resource in the directory "Resources"
+                # Create Resources directory
                 resources_path = dir_path_l1 / "Resources"
                 resources_path.mkdir(parents=True, exist_ok=True)
-                resources_data = list(map(lambda a: urllib.parse.urljoin(url,a.get('src')),webData.find_all("img")))
-                for i in range(len(resources_data)):
-                    try:
-                        with open(resources_path / f"{resources_data[i].split('/')[-1]}",
-                                  "wb") as file_path_l1:
-                            print(resources_data[i])
-                            file_path_l1.write(requests.get(resources_data[i]).content)
-                    except PermissionError as e:
-                        print("Permission Error: "+str(e))
 
-                # Downloading video resource in the directory "Resources"
-                resources_data = list(
-                    map(lambda a: urllib.parse.urljoin(url, a.get('src')), webData.find_all("source")))
-                for i in range(len(resources_data)):
-                    try:
-                        with open(resources_path / f"{resources_data[i].split('/')[-1]}",
-                                  "wb") as file_path_l1:
-                            print(resources_data[i])
-                            file_path_l1.write(requests.get(resources_data[i]).content)
-                    except PermissionError as e:
-                        print("Permission Error: " + str(e))
+                # Downloading image resources
+                print("\n[*] Downloading images...")
+                images = webData.find_all("img")
+                for img in tqdm(images, desc="Images"):
+                    src = img.get('src') or img.get('data-src')
+                    if src:
+                        try:
+                            img_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                img_response = requests.get(img_url, timeout=30)
+                                if img_response.status_code == 200:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(img_response.content)
+                        except Exception as e:
+                            print(f"Error downloading image {src}: {e}")
+
+                # Downloading video resources
+                print("\n[*] Downloading videos...")
+                videos = webData.find_all("video")
+                video_sources = webData.find_all("source")
+                for video in tqdm(videos + video_sources, desc="Videos"):
+                    src = video.get('src')
+                    if src:
+                        try:
+                            video_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                video_response = requests.get(video_url, timeout=60)
+                                if video_response.status_code == 200:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(video_response.content)
+                        except Exception as e:
+                            print(f"Error downloading video {src}: {e}")
+
+                # Downloading audio resources
+                print("\n[*] Downloading audio...")
+                audios = webData.find_all("audio")
+                audio_sources = webData.find_all("source", {"type": lambda x: x and "audio" in x})
+                for audio in tqdm(audios + audio_sources, desc="Audio"):
+                    src = audio.get('src')
+                    if src:
+                        try:
+                            audio_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                audio_response = requests.get(audio_url, timeout=60)
+                                if audio_response.status_code == 200:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(audio_response.content)
+                        except Exception as e:
+                            print(f"Error downloading audio {src}: {e}")
+
+                # Downloading CSS stylesheets
+                print("\n[*] Downloading stylesheets...")
+                stylesheets = webData.find_all("link", {"rel": "stylesheet"})
+                for css in tqdm(stylesheets, desc="CSS"):
+                    href = css.get('href')
+                    if href:
+                        try:
+                            css_url = urllib.parse.urljoin(url, href)
+                            filename = href.split('/')[-1].split('?')[0]
+                            if filename:
+                                css_response = requests.get(css_url, timeout=30)
+                                if css_response.status_code == 200:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(css_response.content)
+                        except Exception as e:
+                            print(f"Error downloading stylesheet {href}: {e}")
+
+                # Downloading JavaScript files
+                print("\n[*] Downloading scripts...")
+                scripts = webData.find_all("script", src=True)
+                for script in tqdm(scripts, desc="Scripts"):
+                    src = script.get('src')
+                    if src:
+                        try:
+                            script_url = urllib.parse.urljoin(url, src)
+                            filename = src.split('/')[-1].split('?')[0]
+                            if filename:
+                                script_response = requests.get(script_url, timeout=30)
+                                if script_response.status_code == 200:
+                                    with open(resources_path / filename, "wb") as f:
+                                        f.write(script_response.content)
+                        except Exception as e:
+                            print(f"Error downloading script {src}: {e}")
+
+                # Downloading fonts and other linked resources
+                print("\n[*] Downloading fonts and other resources...")
+                links = webData.find_all("link", href=True)
+                for link in tqdm(links, desc="Other"):
+                    rel = link.get('rel', [])
+                    if 'icon' in rel or 'font' in str(rel).lower():
+                        href = link.get('href')
+                        if href:
+                            try:
+                                resource_url = urllib.parse.urljoin(url, href)
+                                filename = href.split('/')[-1].split('?')[0]
+                                if filename:
+                                    resource_response = requests.get(resource_url, timeout=30)
+                                    if resource_response.status_code == 200:
+                                        with open(resources_path / filename, "wb") as f:
+                                            f.write(resource_response.content)
+                            except Exception as e:
+                                print(f"Error downloading resource {href}: {e}")
+
+                print(f"\n[+] Scraping complete! Resources saved to: {resources_path}")
 
         elif level == 2:
             pass
